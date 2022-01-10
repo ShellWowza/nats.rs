@@ -256,6 +256,32 @@ impl Subscription {
         Handler { sub: self }
     }
 
+    /// Sets limit of how many messages can wait in internal queue.
+    /// If limit will be reached, error_callback will be fired with information
+    /// which subscription is affected
+    pub fn set_message_limits(&self, limit: usize) {
+        self.0
+            .client
+            .state
+            .read
+            .lock()
+            .subscriptions
+            .entry(self.0.sid)
+            .and_modify(|sub| sub.pending_messages_limit = Some(limit));
+    }
+
+    pub fn dropped_messages(&self) -> usize {
+        self.0
+            .client
+            .state
+            .read
+            .lock()
+            .subscriptions
+            .get(&self.0.sid)
+            .unwrap()
+            .dropped_messages
+    }
+
     /// Unsubscribe a subscription immediately without draining.
     /// Use `drain` instead if you want any pending messages
     /// to be processed by a handler, if one is configured.
