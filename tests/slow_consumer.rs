@@ -57,10 +57,10 @@ fn slow_consumers() {
 
     // check if numbers align between callback and registered dropped messages
     assert_eq!(
-        sub.dropped_messages(),
+        sub.dropped_messages().unwrap(),
         dropped_messages.load(std::sync::atomic::Ordering::SeqCst)
     );
 
     // check if expected number of messages were dropped
-    assert_eq!(sub.dropped_messages(), 40);
+    assert_eq!(sub.dropped_messages().unwrap(), 40);
 }
