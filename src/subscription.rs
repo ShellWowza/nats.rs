@@ -259,6 +259,16 @@ impl Subscription {
     /// Sets limit of how many messages can wait in internal queue.
     /// If limit will be reached, error_callback will be fired with information
     /// which subscription is affected
+    /// # Example
+    /// ```
+    /// # fn main() -> std::io::Result<()> {
+    /// # let nc = nats::connect("demo.nats.io")?;
+    /// let sub =  nc.subscribe("bar")?;
+    /// sub.set_message_limits(1000);
+    /// # Ok(())
+    /// # }
+    /// ```
+
     pub fn set_message_limits(&self, limit: usize) {
         self.0
             .client
@@ -270,6 +280,19 @@ impl Subscription {
             .and_modify(|sub| sub.pending_messages_limit = Some(limit));
     }
 
+    /// returns number of dropped messages for this Subscription.
+    /// Dropped messages occur when `set_message_limits` is set and threashold is reached,
+    /// triggering `slow consumer` error.
+    /// # Example:
+    /// `
+    /// # fn main() -> std::io::Result<()> {
+    /// # let nc = nats::connect("demo.nats.io")?;
+    /// let sub =  nc.subscribe("bar")?;
+    /// sub.set_message_limits(1000);
+    /// println!("dropped messages: {}", dropped_messages());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn dropped_messages(&self) -> usize {
         self.0
             .client

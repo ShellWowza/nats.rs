@@ -891,13 +891,11 @@ impl Client {
                                     io::Error::new(
                                         ErrorKind::Other,
                                         format!(
-                                            "slow consumer detected for subscription id:{} with subject {}", 
-                                            &sid,
+                                            "slow consumer detected for subscription on subject {}. dropping messages",
                                             subscription.subject
                                         ),
                                     ),
                                 );
-                                println!("reached slow_consumers");
                                 read.subscriptions
                                     .entry(sid)
                                     .and_modify(|sub| sub.dropped_messages += 1);
@@ -950,8 +948,7 @@ impl Client {
                                     io::Error::new(
                                         ErrorKind::Other,
                                         format!(
-                                            "slow consumer detected for subscription {} with subject {}", 
-                                            &sid,
+                                            "slow consumer detected for subscription on subject {}. dropping messages",
                                             subscription.subject
                                         ),
                                     ),
