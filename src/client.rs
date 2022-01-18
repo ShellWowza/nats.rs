@@ -18,7 +18,7 @@ use std::io::{self, BufReader, BufWriter, Error, ErrorKind};
 use std::mem;
 use std::sync::Arc;
 
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crossbeam_channel as channel;
@@ -108,6 +108,8 @@ pub struct Client {
 
     /// The options that this `Client` was created using.
     pub(crate) options: Arc<Options>,
+
+    pub(crate) join_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
 impl Client {
@@ -142,6 +144,7 @@ impl Client {
             server_info: Arc::new(Mutex::new(ServerInfo::default())),
             shutdown: Arc::new(Mutex::new(false)),
             options: Arc::new(options),
+            join_handles: Arc::new(Mutex::new(Vec::new())),
         };
 
         let options = client.options.clone();
@@ -155,7 +158,7 @@ impl Client {
         //   broken.
         // - Reading messages from the server and processing them.
         // - Forwarding MSG operations to subscribers.
-        thread::spawn({
+        let handle = thread::spawn({
             let client = client.clone();
             move || {
                 let res = client.run(connector);
@@ -174,6 +177,7 @@ impl Client {
                 options.close_callback.call();
             }
         });
+        client.join_handles.lock().push(handle);
 
         channel::select! {
             recv(run_receiver) -> res => {
@@ -184,7 +188,7 @@ impl Client {
         }
 
         // Spawn a thread that periodically flushes buffered messages.
-        thread::spawn({
+        let handle = thread::spawn({
             let client = client.clone();
             move || {
                 // Track last flush/write time.
@@ -264,7 +268,7 @@ impl Client {
                 }
             }
         });
-
+        client.join_handles.lock().push(handle);
         Ok(client)
     }
 
@@ -351,6 +355,11 @@ impl Client {
             // NB see locking protocol for state.write and state.read
             drop(read);
             drop(write);
+
+            let mut handlers = self.join_handles.lock();
+            while let Some(handler) = handlers.pop() {
+                handler.join().ok();
+            }
         }
     }
 
