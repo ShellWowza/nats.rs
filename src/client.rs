@@ -109,7 +109,11 @@ pub struct Client {
     /// The options that this `Client` was created using.
     pub(crate) options: Arc<Options>,
 
-    pub(crate) join_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    /// handler of client thread.
+    pub(crate) client_thread: Arc<Mutex<Option<JoinHandle<()>>>>,
+
+    /// handler of flush thread.
+    pub(crate) flush_thread: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl Client {
@@ -144,7 +148,8 @@ impl Client {
             server_info: Arc::new(Mutex::new(ServerInfo::default())),
             shutdown: Arc::new(Mutex::new(false)),
             options: Arc::new(options),
-            join_handles: Arc::new(Mutex::new(Vec::new())),
+            client_thread: Arc::new(Mutex::new(None)),
+            flush_thread: Arc::new(Mutex::new(None)),
         };
 
         let options = client.options.clone();
@@ -177,7 +182,8 @@ impl Client {
                 options.close_callback.call();
             }
         });
-        client.join_handles.lock().push(handle);
+
+        *client.client_thread.lock() = Some(handle);
 
         channel::select! {
             recv(run_receiver) -> res => {
@@ -268,7 +274,8 @@ impl Client {
                 }
             }
         });
-        client.join_handles.lock().push(handle);
+
+        *client.flush_thread.lock() = Some(handle);
         Ok(client)
     }
 
@@ -356,10 +363,9 @@ impl Client {
             drop(read);
             drop(write);
 
-            let mut handlers = self.join_handles.lock();
-            while let Some(handler) = handlers.pop() {
-                handler.join().ok();
-            }
+            // wait for the threads.
+            self.client_thread.lock().take().map(JoinHandle::join);
+            self.flush_thread.lock().take().map(JoinHandle::join);
         }
     }
 
