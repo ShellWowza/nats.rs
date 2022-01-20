@@ -209,6 +209,10 @@ impl Client {
 
                 // Wait until at least one message is buffered.
                 loop {
+                    // if client is shutting down, stop periodic flushses.
+                    if client.check_shutdown().is_err() {
+                        break;
+                    }
                     match flush_wanted.recv_timeout(PING_INTERVAL) {
                         Ok(_) => {
                             let since = last.elapsed();
